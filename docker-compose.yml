@@ -1,0 +1,41 @@
+version: '3.2'
+
+volumes:
+  nextcloud:
+  db:
+  nfs1:
+    driver_opts:
+      type: "nfs"
+      o: "addr=192.168.1.1,nolock,soft,rw"
+      device: ":/tmp/mnt/sda/Torrent"
+
+services:
+  db:
+    image: "mariadb:10.3"
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: always
+    volumes:
+      - db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=db_root_admin
+      - MYSQL_PASSWORD=We11come1
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+
+  app:
+    image: nextcloud
+    ports:
+      - 8080:80
+    links:
+      - db
+    volumes:
+      - nextcloud:/var/www/html
+      - nfs1:/var/nfs
+    restart: "no"
+
+# SOME USEFUL COMMANDS
+#  >> Refresh with the latest change and start (up)
+# sudo docker-compose up --force-recreate --build -d
+
+# 2. Connect to a Container
+# sudo docker exec -it <container-name> bash -l

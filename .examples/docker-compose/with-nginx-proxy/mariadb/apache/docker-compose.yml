@@ -1,0 +1,86 @@
+version: '3'
+
+services:
+  db:
+    image: "mariadb:10.3"
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: always
+    volumes:
+      - db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=db_root_admin
+    env_file:
+      - db.env
+
+  app:
+    image: nextcloud:apache
+    restart: always
+    volumes:
+      - nextcloud:/var/www/html
+      - nfs1:/var/nfs
+    environment:
+      - VIRTUAL_HOST=lamen.asuscomm.com
+      - LETSENCRYPT_HOST=lamen.asuscomm.com
+      - LETSENCRYPT_EMAIL=enochlamhy@gmail.com
+      - MYSQL_HOST=db
+    env_file:
+      - db.env
+    depends_on:
+      - db
+    networks:
+      - proxy-tier
+      - default
+
+  proxy:
+    build: ./proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+    volumes:
+      - certs:/etc/nginx/certs:ro
+      - vhost.d:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - proxy-tier
+
+  letsencrypt-companion:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy-tier
+    depends_on:
+      - proxy
+
+volumes:
+  db:
+  nextcloud:
+  certs:
+  vhost.d:
+  html:
+  nfs1:
+    driver_opts:
+      type: "nfs"
+      o: "addr=192.168.1.1,nolock,soft,rw"
+      device: ":/tmp/mnt/sda/Torrent"
+
+networks:
+  proxy-tier:
+
+# SOME USEFUL COMMANDS
+#  >> Refresh with the latest change and start (up)
+# sudo docker-compose up --force-recreate --build -d
+
+# 2. Connect to a Container
+# sudo docker exec -it <container-name> bash -l
+
+# 3. Bring down all services and remove the containers/resources
+# sudo docker-compose down --remove-orphans
